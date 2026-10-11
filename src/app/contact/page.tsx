@@ -28,7 +28,7 @@ export default function ContactPage() {
 
           <div>
             <strong>อีเมล</strong>
-            <p>@gmail.com</p>
+            <p>LANLODECNX@gmail.com</p>
           </div>
 
           <div>
