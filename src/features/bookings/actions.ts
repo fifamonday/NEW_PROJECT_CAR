@@ -21,6 +21,23 @@ import { redirect } from "next/navigation";
 
 type BookingStatus = Parameters<typeof updateBookingStatus>[1];
 
+async function requireAdmin() {
+  const user = await getCurrentUser();
+
+  if (!user || user.role !== "admin") {
+    redirect("/");
+  }
+
+  return user;
+}
+
+function revalidateBookingPages() {
+  revalidatePath("/account");
+  revalidatePath("/admin/bookings");
+  revalidatePath("/admin/cars");
+  revalidatePath("/");
+}
+
 /* =========================================================
    CREATE BOOKING
 ========================================================= */
@@ -69,7 +86,8 @@ export async function createBookingAction(formData: FormData) {
   }
 
   const days = Math.ceil(
-    (end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)
+    (end.getTime() - start.getTime()) /
+      (1000 * 60 * 60 * 24)
   );
 
   if (days < 1) {
@@ -80,7 +98,7 @@ export async function createBookingAction(formData: FormData) {
   }
 
   const cars = await getCars();
-  const car = cars.find((item) => Number(item.id) === carId);
+  const car = cars.find((item) => item.id === carId);
 
   if (!car) {
     return {
@@ -109,10 +127,7 @@ export async function createBookingAction(formData: FormData) {
     total: days * car.pricePerDay,
   });
 
-  revalidatePath("/account");
-  revalidatePath("/admin/bookings");
-  revalidatePath("/");
-  revalidatePath("/admin/cars");
+  revalidateBookingPages();
 
   return {
     success: true as const,
@@ -128,11 +143,7 @@ export async function updateBookingAction(
   id: number,
   formData: FormData
 ) {
-  const user = await getCurrentUser();
-
-  if (!user || user.role !== "admin") {
-    redirect("/");
-  }
+  await requireAdmin();
 
   const endDate = String(formData.get("endDate") ?? "");
 
@@ -150,16 +161,36 @@ export async function updateBookingAction(
 
 /* =========================================================
    UPDATE BOOKING STATUS
+   Admin can confirm or cancel pending bookings.
+   Returning a car must use returnCarAction.
 ========================================================= */
 
 export async function updateBookingStatusAction(
   id: number,
   status: BookingStatus
 ) {
-  const user = await getCurrentUser();
+  await requireAdmin();
 
-  if (!user || user.role !== "admin") {
-    redirect("/");
+  if (status === "คืนรถแล้ว") {
+    throw new Error(
+      "กรุณาใช้ปุ่มคืนรถสำหรับเปลี่ยนสถานะเป็นคืนรถแล้ว"
+    );
+  }
+
+  const booking = await getBooking(id);
+
+  if (!booking) {
+    throw new Error("ไม่พบรายการเช่า");
+  }
+
+  if (booking.status !== "รอยืนยัน") {
+    throw new Error(
+      "รายการนี้ไม่ได้อยู่ในสถานะรอยืนยันแล้ว"
+    );
+  }
+
+  if (status !== "ยืนยันแล้ว" && status !== "ยกเลิก") {
+    throw new Error("สถานะการจองไม่ถูกต้อง");
   }
 
   const updatedBooking = await updateBookingStatus(id, status);
@@ -168,58 +199,49 @@ export async function updateBookingStatusAction(
     await setCarAvailability(updatedBooking.carId, false);
   }
 
-  revalidatePath("/admin/bookings");
-  revalidatePath("/account");
-  revalidatePath("/");
-  revalidatePath("/admin/cars");
+  revalidateBookingPages();
 }
 
 /* =========================================================
-   USER RETURNS CAR
+   ADMIN RETURNS CAR
 ========================================================= */
 
 export async function returnCarAction(id: number) {
-  const user = await getCurrentUser();
+  await requireAdmin();
 
-  if (!user) {
-    redirect("/login");
+  if (!Number.isInteger(id) || id <= 0) {
+    throw new Error("รหัสรายการจองไม่ถูกต้อง");
   }
 
   const booking = await getBooking(id);
 
-  if (
-    !booking ||
-    booking.userEmail?.toLowerCase() !== user.email.toLowerCase()
-  ) {
-    throw new Error("ไม่พบรายการเช่าของคุณ");
+  if (!booking) {
+    throw new Error("ไม่พบรายการเช่า");
   }
 
   if (booking.status !== "ยืนยันแล้ว") {
     throw new Error(
-      "สามารถคืนรถได้เฉพาะรายการที่ยืนยันแล้วเท่านั้น"
+      "คืนรถได้เฉพาะรายการที่มีสถานะยืนยันแล้วเท่านั้น"
     );
   }
 
   // เปลี่ยนสถานะรายการเดิม ไม่ลบประวัติ
   await updateBookingStatus(id, "คืนรถแล้ว");
 
-  // ถ้ายังมีรายการอื่นที่ยืนยันแล้วของรถคันเดียวกัน
-  // ให้คงสถานะรถเป็นไม่พร้อมเช่า
-  const allBookings = await getBookings();
+  // ตรวจสอบว่ารถคันนี้ยังมีรายการจองที่ยืนยันแล้วอื่นหรือไม่
+  const bookings = await getBookings();
 
-  const hasOtherConfirmedBooking = allBookings.some(
+  const hasOtherConfirmedBooking = bookings.some(
     (item) =>
       item.carId === booking.carId &&
       item.id !== booking.id &&
       item.status === "ยืนยันแล้ว"
   );
 
+  // เปิดรถรับจองใหม่เมื่อไม่มีรายการยืนยันอื่นค้างอยู่
   if (!hasOtherConfirmedBooking) {
     await setCarAvailability(booking.carId, true);
   }
 
-  revalidatePath("/account");
-  revalidatePath("/admin/bookings");
-  revalidatePath("/admin/cars");
-  revalidatePath("/");
+  revalidateBookingPages();
 }

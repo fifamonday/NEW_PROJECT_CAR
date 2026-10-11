@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/features/auth/service";
 import { getBookings } from "@/features/bookings/service";
 import { updateBookingStatusAction } from "@/features/bookings/actions";
+import ReturnCarButton from "@/features/bookings/components/ReturnCarButton";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -48,10 +49,15 @@ export default async function AdminBookingsPage({
         <div className="admin-bookings-header">
           <div>
             <h1>รายการจองรถ</h1>
-            <p className="muted">จัดการรายการเช่ารถของลูกค้า</p>
+            <p className="muted">
+              จัดการรายการเช่ารถของลูกค้า
+            </p>
           </div>
 
-          <Link href="/admin/cars" className="admin-back-button">
+          <Link
+            href="/admin/cars"
+            className="admin-back-button"
+          >
             จัดการรถ
           </Link>
         </div>
@@ -65,7 +71,10 @@ export default async function AdminBookingsPage({
             className="booking-search-input"
           />
 
-          <button type="submit" className="booking-search-button">
+          <button
+            type="submit"
+            className="booking-search-button"
+          >
             ค้นหา
           </button>
 
@@ -85,7 +94,9 @@ export default async function AdminBookingsPage({
 
         {filteredBookings.length === 0 ? (
           <div className="empty">
-            {keyword ? "ไม่พบข้อมูลที่ค้นหา" : "ยังไม่มีรายการจองรถ"}
+            {keyword
+              ? "ไม่พบข้อมูลที่ค้นหา"
+              : "ยังไม่มีรายการจองรถ"}
           </div>
         ) : (
           <div className="table-wrap">
@@ -109,20 +120,15 @@ export default async function AdminBookingsPage({
                 {filteredBookings.map((booking) => (
                   <tr key={booking.id}>
                     <td>{booking.userName}</td>
-
                     <td>{booking.userEmail || "-"}</td>
-
                     <td>{booking.carName}</td>
-
                     <td>{booking.licensePlate}</td>
-
                     <td>{booking.startDate}</td>
-
                     <td>{booking.endDate}</td>
-
                     <td>{booking.days} วัน</td>
-
-                    <td>฿{booking.total.toLocaleString("th-TH")}</td>
+                    <td>
+                      ฿{booking.total.toLocaleString("th-TH")}
+                    </td>
 
                     <td>
                       <span
@@ -176,9 +182,7 @@ export default async function AdminBookingsPage({
                         )}
 
                         {booking.status === "ยืนยันแล้ว" && (
-                          <span className="muted">
-                            รอคืนรถ
-                          </span>
+                          <ReturnCarButton bookingId={booking.id} />
                         )}
 
                         {booking.status === "ยกเลิก" && (

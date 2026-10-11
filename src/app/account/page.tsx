@@ -1,7 +1,6 @@
 
 import { getCurrentUser } from "@/features/auth/service";
 import { getUserBookings } from "@/features/bookings/service";
-import ReturnCarButton from "@/features/bookings/components/ReturnCarButton";
 import { redirect } from "next/navigation";
 
 export default async function AccountPage() {
@@ -23,7 +22,9 @@ export default async function AccountPage() {
         <p className="muted">{user.email}</p>
 
         {bookings.length === 0 ? (
-          <div className="empty">ยังไม่มีประวัติการเช่ารถ</div>
+          <div className="empty">
+            ยังไม่มีประวัติการเช่ารถ
+          </div>
         ) : (
           <div className="table-wrap">
             <table>
@@ -35,7 +36,6 @@ export default async function AccountPage() {
                   <th>จำนวนวัน</th>
                   <th>รวม</th>
                   <th>สถานะ</th>
-                  <th>จัดการ</th>
                 </tr>
               </thead>
 
@@ -50,7 +50,9 @@ export default async function AccountPage() {
 
                     <td>{booking.days}</td>
 
-                    <td>฿{booking.total.toLocaleString("th-TH")}</td>
+                    <td>
+                      ฿{booking.total.toLocaleString("th-TH")}
+                    </td>
 
                     <td>
                       <span
@@ -65,16 +67,6 @@ export default async function AccountPage() {
                       >
                         {booking.status}
                       </span>
-                    </td>
-
-                    <td>
-                      {booking.status === "ยืนยันแล้ว" ? (
-                        <ReturnCarButton bookingId={booking.id} />
-                      ) : booking.status === "คืนรถแล้ว" ? (
-                        <span className="muted">คืนรถแล้ว</span>
-                      ) : (
-                        <span className="muted">-</span>
-                      )}
                     </td>
                   </tr>
                 ))}
